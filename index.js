@@ -16,8 +16,9 @@ const port = 3001;
 const conn = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
-  password: 'Anmol123@',
-  database: process.env.DB
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB,
+  port: 3306
 });
 
 function connect_db(user_id){
@@ -30,13 +31,11 @@ function connect_db(user_id){
       income = result[0].income;
       expenses = result[0].expenses;
       balance = result[0].balance;
-      const data = {income:income,expenses:expenses,balance:balance};
     }
   });
 
   conn.query("SELECT * FROM balance where user_id = "+user_id, function (err, result, fields) {
     if (err) throw err;
-    const a = result[result.length-1].description;
     const b = result[result.length-1].amount;
 
     if(b>0){
@@ -71,7 +70,8 @@ function getAccountData(res,id){
         const email = result[0].email;
         const password = result[0].password;
         const id = result[0].user_id;
-        const data = {id:id,email:email,password:password,income:income,expenses:expenses,balance:balance};
+        const name = result[0].username;
+        const data = {id:id,email:email,password:password,income:income,expenses:expenses,balance:balance,name:name};
 
         //send data from backend to frontend(react)
         res.send(data);
@@ -100,7 +100,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/account',(req,res)=>{
-  getAccountData(res,req.query.id);
+  getAccountData(res,11);
 });
 
 app.get('/transactions',(req,res)=>{
@@ -225,3 +225,5 @@ app.post('/delete',(req,res)=>{
 app.listen(port, () => {
   console.log('Server running at port: ',port);
 });
+
+module.exports = app;
