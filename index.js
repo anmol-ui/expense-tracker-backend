@@ -1,59 +1,32 @@
 const express = require('express');
+const mysql = require("mysql");
 const bodyParser = require('body-parser');
 const cors = require("cors");
-const mysql = require("mysql");
-const res = require('express/lib/response');
-const axios = require("axios");
 require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-const port = 3001;
+const port = 4000;
 
 //create database connection
 const conn = mysql.createConnection({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB,
+  host: "expensetracker.cb25oh1sd7ed.eu-north-1.rds.amazonaws.com",
+  user: "root",
+  password: "Anmol123#",
+  database: "expensetracker",
   port: 3306
 });
 
-function connect_db(user_id){
-  let income,expenses,balance;
-  conn.query("SELECT * FROM users where user_id = "+user_id, function (err, result, fields) {
-    if (err) throw err;
-    
-    if(result.length>0){
-      
-      income = result[0].income;
-      expenses = result[0].expenses;
-      balance = result[0].balance;
-    }
-  });
-
-  conn.query("SELECT * FROM balance where user_id = "+user_id, function (err, result, fields) {
-    if (err) throw err;
-    const b = result[result.length-1].amount;
-
-    if(b>0){
-      let sql = "UPDATE users SET income = "+(income+b) +",expenses = "+(expenses) +",balance = "+(balance+b)  +" WHERE user_id = "+user_id;
-      let query = conn.query(sql,(err, results) => {
-        if(err) throw err;
-        console.log(results.affectedRows + " record(s) updated");
-      });
-    }
-    else{
-      let sql = "UPDATE users SET income = "+(income) +",expenses = "+(expenses-b) +",balance = "+(balance+b)  +" WHERE user_id = "+user_id;
-      let query = conn.query(sql,(err, results) => {
-        if(err) throw err;
-        console.log(results.affectedRows + " record(s) updated");
-      });
-    }
-  });
-}
+conn.connect(function(err) {
+  if (err) {
+    console.error('Database connection failed: ' + err.stack);
+    return;
+  }
+  
+  console.log('Connected to database.');
+});
 
 var flag = 0;
 
@@ -79,7 +52,6 @@ function getAccountData(res,id){
     });
   }
 }
-
 function getTransactions(res,user_id){
   const history = [];
   conn.query("SELECT * FROM balance WHERE user_id = "+user_id, function (err, result, fields) {
@@ -88,25 +60,24 @@ function getTransactions(res,user_id){
       const a = result[i].id;
       const b = result[i].description;
       const c = result[i].amount;
-      history.push({id:a,text:b,amount:c});
+      history.push({id:a,description:b,amount:c});
     }
-    console.log(history);
     res.send(history);
   });
 }
 
 app.get('/', (req, res) => {
+  res.set('Access-Control-Allow-Origin', 'http://localhost:3000');
+  res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.send('Expense Tracker App Backend');
 });
-
 app.get('/account',(req,res)=>{
-  getAccountData(res,11);
+  getAccountData(res,req.query.id);
 });
-
 app.get('/transactions',(req,res)=>{
   getTransactions(res,req.query.id);
 });
-
 app.post('/register',(req,res)=>{
   let data = req.body;
   let user_id;
@@ -124,7 +95,6 @@ app.post('/register',(req,res)=>{
   });
   
 });
-
 app.post('/verify',(req,res)=>{
   let data = req.body;
 
@@ -163,63 +133,40 @@ app.post('/verify',(req,res)=>{
   });
   
 });
-
 app.post('/post',(req,res) =>{
 
     let data = req.body;
-    let sql = "INSERT INTO balance SET ?;";
-    let query = conn.query(sql, data,(err, results) => {
+    console.log(data);
+    const income = ((data.income));
+    const balance = ((data.balance));
+    const expenses = ((data.expenses));
+    const user_id = data.user_id;
+    const transactions = data.transactions;
+
+    let sql = "UPDATE users SET income = "+income+", balance = "+balance+", expenses = "+expenses+" WHERE user_id = "+user_id;
+    let query = conn.query(sql,(err, results) => {
       if(err) throw err;
-      res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-      connect_db(req.body.user_id);
+      // res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
     });
-});
 
-app.post('/delete',(req,res)=>{
-  let income,expenses,balance;
-  conn.query("SELECT * FROM users where user_id = "+req.body.user_id, function (err, result, fields) {
-    if (err) throw err;
+
+    sql = "DELETE FROM balance WHERE user_id = "+user_id+";";
+    conn.query(sql,(err, results) => {
+      if(err) throw err;
+    });
+
+    for(let i=0;i<transactions.length;i++){
+      const transaction = transactions[i];
+      const desc = transaction.description;
+      const amount = parseFloat(String(transaction.amount)).toFixed(2);
+      const id = i;
+      sql = "REPLACE INTO balance (id, description, amount,user_id) VALUES ("+id+","+'"'+desc+'"'+","+amount+","+user_id+");"
+      conn.query(sql,(err, results) => {
+        if(err) throw err;
+      });
+    }
+    // res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
     
-    if(result.length>0){
-      
-      income = result[0].income;
-      expenses = result[0].expenses;
-      balance = result[0].balance;
-    }
-  });
-
-  let id = req.body.id;
-  let user_id = req.body.user_id;
-  console.log(id);
-  conn.query("SELECT * FROM balance WHERE id = "+id+" and user_id = "+user_id, function (err, result, fields) {
-    if (err) throw err;
-    console.log(result);
-    // const a = result[0].description;
-    const b = result[0].amount;
-
-    if(b>0){
-      let sql = "UPDATE users SET income = "+(income-b) +",expenses = "+(expenses) +",balance = "+(balance-b)  +" WHERE user_id = "+user_id;
-      let query = conn.query(sql,(err, results) => {
-        if(err) throw err;
-        console.log(results.affectedRows + " record(s) updated");
-      });
-    }
-    else{
-      let sql = "UPDATE users SET income = "+(income) +",expenses = "+(expenses+b) +",balance = "+(balance-b)  +" WHERE user_id = "+user_id;
-      let query = conn.query(sql,(err, results) => {
-        if(err) throw err;
-        console.log(results.affectedRows + " record(s) updated");
-      });
-    }
-  });
-
-  let sql = "DELETE FROM balance WHERE id = "+id+" and user_id = "+user_id;
-  let query = conn.query(sql,(err, results) => {
-    if(err) throw err;
-    res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
-  });
-
-  
 });
 
 app.listen(port, () => {
