@@ -2,6 +2,8 @@ const express = require('express');
 const mysql = require("mysql");
 const bodyParser = require('body-parser');
 const cors = require("cors");
+const axios = require('axios');
+
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +20,7 @@ const conn = mysql.createConnection({
   database: "expensetracker",
   port: 3306
 });
+
 
 conn.connect(function(err) {
   if (err) {
@@ -168,6 +171,71 @@ app.post('/post',(req,res) =>{
     // res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
     
 });
+
+//-----------------------------------------FETCH STOCK MARKET DATA---------------------------------------------
+const symbols = ['INFY.BSE','RELIANCE.BSE','IBM','HDFC.BSE','TCS.BSE','HCLTECH.BSE','ITC.BSE','ADANIENT.BSE','TATAMOTORS.BSE','PAYTM.BSE'];
+
+const fetchData = async (sym) => {
+  try {
+    const response = await axios.get(
+      'https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol='+sym+'&apikey=3NC5FRPGCGU5YIV3'
+    ); // Replace YOUR_API_KEY with your actual API key
+
+    if (response.status !== 200) {
+      throw new Error('Error fetching stock data');
+    }
+
+    const data = response.data;
+    return data;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+};
+
+const fetchStockData = async () => {
+  for (let i = 0; i < 10; i++) {
+    const stockData = await fetchData(symbols[i]);
+    console.log(stockData)
+    if (stockData) {
+      const symbol = stockData['Global Quote']['01. symbol'];
+      const lastPrice = stockData['Global Quote']['05. price'];
+      const change = stockData['Global Quote']['09. change'];
+      const changePercent = stockData['Global Quote']['10. change percent'];
+
+      console.log(`Stock Data - Iteration ${i + 1}`);
+      console.log(`Symbol: ${symbol}`);
+      console.log(`Last Price: ${lastPrice}`);
+      console.log(`Change: ${change}`)
+      console.log(`Change Percent: ${changePercent}`);
+      console.log('----------------------');
+
+      const sql = "REPLACE INTO stock_data VALUES ("+'"'+symbol+'"'+","+lastPrice+","+change+","+'"'+changePercent+'"'+");"
+      conn.query(sql,(err, results) => {
+        if(err) throw err;
+      });
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 20000)); // Pause for 20 seconds between each api call
+  }
+};
+
+function sql_stocks_data(res){
+  let sql = "SELECT * FROM stock_data";
+  conn.query(sql,(err, results) => {
+    res.send(results);
+  });
+}
+
+
+app.get('/update_stocks',(req,res)=>{
+  fetchStockData();
+  res.send('Updating ...');
+});
+
+app.get('/fetch_stocks_data',(req,res)=>{
+  sql_stocks_data(res);
+})
 
 app.listen(port, () => {
   console.log('Server running at port: ',port);
