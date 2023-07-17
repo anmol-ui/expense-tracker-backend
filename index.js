@@ -168,6 +168,7 @@ app.post('/post',(req,res) =>{
         if(err) throw err;
       });
     }
+    res.send("Saved");
     // res.send(JSON.stringify({"status": 200, "error": null, "response": results}));
     
 });
