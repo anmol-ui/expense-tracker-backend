@@ -145,6 +145,7 @@ app.post('/post',(req,res) =>{
     const expenses = ((data.expenses));
     const user_id = data.user_id;
     const transactions = data.transactions;
+    console.log(transactions);
 
     let sql = "UPDATE users SET income = "+income+", balance = "+balance+", expenses = "+expenses+" WHERE user_id = "+user_id;
     let query = conn.query(sql,(err, results) => {
@@ -228,6 +229,13 @@ function sql_stocks_data(res){
   });
 }
 
+app.get('/user_info',(req,res)=>{
+  const user_id = req.query.id;
+  let sql = "SELECT * FROM users WHERE user_id = "+user_id;
+  conn.query(sql,(err, results) => {
+    res.send(results);
+  });
+});
 
 app.get('/update_stocks',(req,res)=>{
   fetchStockData();
