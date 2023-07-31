@@ -81,6 +81,15 @@ app.get('/account',(req,res)=>{
 app.get('/transactions',(req,res)=>{
   getTransactions(res,req.query.id);
 });
+app.get('/user-info',(req,res)=>{
+  const user_id = req.query.id;
+  conn.query("SELECT * FROM users WHERE user_id = "+user_id, function (err, result, fields) {
+    if (err) throw err;
+    console.log(result);
+    // res.send(history);
+  });
+});
+
 app.post('/register',(req,res)=>{
   let data = req.body;
   let user_id;
